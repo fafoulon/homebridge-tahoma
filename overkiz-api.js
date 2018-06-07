@@ -1,18 +1,19 @@
 var request = require("request").defaults({ jar: true })
 var pollingtoevent = require('polling-to-event');
 
-Command = function(name) {
+Command = function(name, parameters) {
     this.type = 1;
     this.name = name;
-    this.parameters = [];
+    if (typeof(parameters)==='undefined') parameters = [];
+    this.parameters = parameters;
 }
 
-Execution = function(name, deviceURL, command) {
+Execution = function(name, deviceURL, commands) {
     this.label = name;
     this.metadata = null;
     this.actions = [{
         deviceURL: deviceURL,
-        commands: [command]
+        commands: commands
     }];
 }
 
@@ -57,6 +58,7 @@ function OverkizApi(log, config) {
 	this.log = log;
     
     // Default values
+    this.alwaysPoll = config['alwaysPoll'] || false;
     this.pollingPeriod = config['pollingPeriod'] || 2; // Poll for events every 2 seconds by default
     this.refreshPeriod = config['refreshPeriod'] || (60 * 10); // Refresh device states every 10 minutes by default
     this.service = config['service'] || 'TaHoma';
@@ -102,7 +104,7 @@ function OverkizApi(log, config) {
                     cb(event.newState, event.failureType == undefined ? null : event.failureType);
                     if (event.timeToNextState == -1) { // No more state expected for this execution
                         delete that.executionCallback[event.execId];
-                        if(Object.keys(that.executionCallback).length == 0) { // Unregister listener when no more execution running
+                        if(!that.alwaysPoll && Object.keys(that.executionCallback).length == 0) { // Unregister listener when no more execution running
                         	that.unregisterListener();
                         }
                     }
@@ -223,6 +225,8 @@ OverkizApi.prototype = {
                 } else if (json.success) {
                     that.isLoggedIn = true;
                     myRequest(authCallback);
+                    if(that.alwaysPoll)
+                		that.registerListener();
                 } else if (json.error) {
                     that.log.warn("Loggin fail: " + json.error);
                 } else {
@@ -316,9 +320,10 @@ OverkizApi.prototype = {
             json: true
         }, function(error, json) {
             if (error == null) {
-                callback(ExecutionState.INITIALIZED, null, json); // Init OK
+                callback(ExecutionState.INITIALIZED, error, json); // Init OK
                 that.executionCallback[json.execId] = callback;
-                that.registerListener();
+                if(!that.alwaysPoll)
+                	that.registerListener();
             } else {
                 callback(ExecutionState.INITIALIZED, error);
             }

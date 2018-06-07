@@ -82,24 +82,43 @@ AbstractAccessory.prototype = {
         **/
     },
     
-    executeCommand: function(command, callback) {
-        var that = this;
-        if (this.isCommandInProgress()) {
-            this.api.cancelCommand(this.lastExecId, function() {});
-        }
-		
-				var label = command.name + ' ' + this.name;
-				var execution = new Execution(label, this.device.deviceURL, command);
-        
-        this.api.executeCommand(execution, function(status, error, data) {
-        	if(!error) {
-						if (status == ExecutionState.INITIALIZED)
-							that.lastExecId = data.execId;
-						if (status == ExecutionState.FAILED || status == ExecutionState.COMPLETED)
-							that.log.info('[' + that.name + '] ' + command.name + ' ' + (error == null ? status : error));
-          }
-          callback(status, error, data);
-        });
+    executeCommand: function(commands, callback) {
+			var that = this;
+			var cmdName = '';
+			if(Array.isArray(commands)) {
+				cmdName = "Bulk commands";
+			} else {
+				that.log('['+that.name+'] ' + commands.name +JSON.stringify(commands.parameters));
+				cmdName = commands.name;
+				commands = [commands];
+			}
+			
+			if (this.isCommandInProgress()) {
+					this.api.cancelCommand(this.lastExecId, function() {});
+			}
+	
+			var label = cmdName + ' ' + this.name;
+			var execution = new Execution(label, this.device.deviceURL, commands);
+			
+			this.api.executeCommand(execution, function(status, error, data) {
+				if(!error) {
+					if (status == ExecutionState.INITIALIZED)
+						that.lastExecId = data.execId;
+					
+				}
+				if(status == ExecutionState.FAILED || status == ExecutionState.COMPLETED)
+					that.log('[' + that.name + '] ' + cmdName + ' ' + (error == null ? status : error));
+				else
+					that.log.debug('[' + that.name + '] ' + cmdName + ' ' + (error == null ? status : error));
+				callback(status, error, data);
+			});
+    },
+    
+    /*
+    	Merge with another device
+    */
+    merge: function(device) {
+    
     },
 
     /*
@@ -117,5 +136,14 @@ AbstractAccessory.prototype = {
 
     isCommandInProgress: function() {
         return (this.lastExecId in this.api.executionCallback);
+    },
+    
+    postpone: function(todo, value, callback) {
+    	var that = this;
+        if(this.timeout != null) {
+        	clearTimeout(this.timeout);
+        }
+        this.timeout = setTimeout(function() { todo(value, function(err) { }); }, 2000);
+        callback();
     }
 }

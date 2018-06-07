@@ -21,7 +21,7 @@ Gate = function(log, api, device) {
 
     this.currentState = service.getCharacteristic(Characteristic.CurrentDoorState);
     this.targetState = service.getCharacteristic(Characteristic.TargetDoorState)
-    if(this.device.widget == 'OpenCloseGate4T') {
+    if(this.device.widget.startsWith('OpenClose') || this.device.widget.startsWith('UpDown')) {
     	this.currentState.updateValue(Characteristic.CurrentDoorState.CLOSED);
     	this.targetState.updateValue(Characteristic.TargetDoorState.CLOSED);
     	this.targetState.on('set', this.cycle.bind(this));
@@ -81,7 +81,7 @@ Gate.prototype = {
                 case ExecutionState.COMPLETED:
                 	var newValue = (value == Characteristic.TargetDoorState.OPEN) ? Characteristic.CurrentDoorState.OPEN : Characteristic.CurrentDoorState.CLOSED;
                     that.currentState.updateValue(newValue);
-                break;
+                	break;
                 case ExecutionState.FAILED:
                 	// Restore target in case of error
                     that.targetState.updateValue(value == Characteristic.TargetDoorState.OPEN ? Characteristic.TargetDoorState.CLOSED : Characteristic.TargetDoorState.OPEN);
@@ -93,7 +93,7 @@ Gate.prototype = {
     },
 
     onStateUpdate: function(name, value) {
-        if (name == State.STATE_OPEN_CLOSED_PEDESTRIAN) {
+        if (name == State.STATE_OPEN_CLOSED_PEDESTRIAN || name == State.STATE_OPEN_CLOSED_UNKNOWN) {
         	var converted = null;
         	var target = null;
             switch(value) {
@@ -101,15 +101,15 @@ Gate.prototype = {
 				case 'open' :
 					converted = Characteristic.CurrentDoorState.OPEN;
 					target = Characteristic.TargetDoorState.OPEN;
-				break;
+					break;
 				case 'pedestrian' :
 					converted = Characteristic.CurrentDoorState.STOPPED;
 					target = Characteristic.TargetDoorState.OPEN;
-				break;
+					break;
 				case 'closed' :
 					converted = Characteristic.CurrentDoorState.CLOSED;
 					target = Characteristic.TargetDoorState.CLOSED;
-				break;
+					break;
 			}
 
             this.currentState.updateValue(converted);

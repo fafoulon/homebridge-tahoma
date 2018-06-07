@@ -20,6 +20,7 @@ TemperatureSensor = function(log, api, device) {
     var service = new Service.TemperatureSensor(device.label);
 
     this.temperatureState = service.getCharacteristic(Characteristic.CurrentTemperature);
+    this.temperatureState.setProps({ minValue: -100, maxValue: 100 });
     
     this.services.push(service);
 };
@@ -30,8 +31,9 @@ TemperatureSensor.prototype = {
 
     onStateUpdate: function(name, value) {
         if (name == 'core:TemperatureState') {
-        	var val = value - 273.15;
-            this.temperatureState.updateValue(val);
+        	if(value > 200)
+        		value -= 273.15;
+        	this.temperatureState.updateValue(value);
         }
     }
 }

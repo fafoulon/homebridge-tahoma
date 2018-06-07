@@ -41,9 +41,8 @@ WaterHeatingSystem.prototype = {
     setTemperature: function(value, callback) {
         var that = this;
         
-        var command = new OverkizCommand('setHeatingTargetTemperature');
-		command.parameters = [value];
-        this.executeCommand(command, function(status, error, data) {
+        var command = new Command('setHeatingTargetTemperature', [value]);
+		this.executeCommand(command, function(status, error, data) {
             switch (status) {
                 case ExecutionState.INITIALIZED:
                     callback(error);
@@ -64,7 +63,7 @@ WaterHeatingSystem.prototype = {
     setHeatingCooling: function(value, callback) {
         var that = this;
         
-        var command = new OverkizCommand('setHeatingOnOffState');
+        var command = new Command('setHeatingOnOffState');
 		switch(value) {
 			case Characteristic.TargetHeatingCoolingState.AUTO:
 			case Characteristic.TargetHeatingCoolingState.HEAT:

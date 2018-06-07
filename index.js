@@ -25,10 +25,10 @@ function TahomaPlatform(log, config, api) {
     this.log = log;
     this.config = config;
 
-		this.exposeScenarios = config.exposeScenarios || false;
-		this.exclusions = config.exclude || [];
-		this.exclusions.push('internal'); // Exclude internal devices
-		this.api = new OverkizService.Api(log, config);
+	this.exposeScenarios = config.exposeScenarios || false;
+	this.exclusions = config.exclude || [];
+	this.exclusions.push('internal'); // Exclude internal devices
+	this.api = new OverkizService.Api(log, config);
 
     this.platformAccessories = [];
 
@@ -38,8 +38,18 @@ function TahomaPlatform(log, config, api) {
 TahomaPlatform.prototype = {
     getAccessory: function(deviceURL) {
         for (accessory of this.platformAccessories) {
-            if (accessory.deviceURL == deviceURL)
-                return accessory;
+        	if (accessory.deviceURL == deviceURL)
+				return accessory;
+        }
+        
+        var i1 = deviceURL.indexOf("#");
+        if(i1 != -1) {
+        	baseURL = deviceURL.substring(0, i1);
+					//this.log.info('Search extended : ' + baseURL);
+        	for (accessory of this.platformAccessories) {
+				if (accessory.deviceURL.startsWith(baseURL))
+				return accessory;
+			}
         }
         return null;
     },
@@ -47,7 +57,7 @@ TahomaPlatform.prototype = {
     accessories: function(callback) {
         var that = this;
         if (that.platformAccessories.length == 0) {
-            that.loadDevices(function() {
+        	that.loadDevices(function() {
             	if(that.exposeScenarios) {
               	that.loadScenarios(function() {
               		callback(that.platformAccessories);
@@ -65,22 +75,40 @@ TahomaPlatform.prototype = {
     	var that = this;
     	this.api.getDevices(function(error, data) {
 				if (!error) {
+					var ignoredDevices = [];
 					for (device of data) {
 						var accessory = null;
 						var protocol = device.controllableName.split(':').shift(); // Get device protocol name
 						var accessoryConfig = that.config[device.uiClass] || {};
-						if(DeviceAccessory[device.uiClass] != null && that.exclusions.indexOf(protocol) == -1 && that.exclusions.indexOf(device.label) == -1) {
-							accessory = new DeviceAccessory[device.uiClass](that.log, that.api, device, accessoryConfig);
+						if(DeviceAccessory[device.uiClass] != null) {
+							if(that.exclusions.indexOf(protocol) == -1 && that.exclusions.indexOf(device.label) == -1) {
+								accessory = new DeviceAccessory[device.uiClass](that.log, that.api, device, accessoryConfig);
+								if(device.states != null) {
+									for (state of device.states) {
+										accessory.onStateUpdate(state.name, state.value);
+									}
+								}
+								that.platformAccessories.push(accessory);
+							} else {
+								ignoredDevices.push(device);
+							}
 						} else {
-							that.log.info('Device ' + device.uiClass + ' ignored');
+							that.log.info('Device type ' + device.uiClass + ' unknown');
 						}
+					}
+					
+					for (device of ignoredDevices) {
+						accessory = that.getAccessory(device.deviceURL);
 						if(accessory != null) {
+							accessory.merge(device);
 							if(device.states != null) {
 								for (state of device.states) {
 									accessory.onStateUpdate(state.name, state.value);
 								}
 							}
-							that.platformAccessories.push(accessory);
+							that.log.info('Device ' + device.label + ' merged with ' + accessory.name);
+						} else {
+							that.log.info('Device ' + device.uiClass + ' ignored');
 						}
 					}
 				}
